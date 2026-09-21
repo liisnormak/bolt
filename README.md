@@ -1,0 +1,2 @@
+# bolt
+Andmetarkus kursuse grupitöö
