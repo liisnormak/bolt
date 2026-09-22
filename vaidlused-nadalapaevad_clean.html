@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vaidlused nädalapäevade järgi</title>
+<style>
+  :root{
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    --bg:#0f1512;--panel:#161d19;--ink:#e8efe9;--muted:#8fa197;--line:#26302b;
+    --accent:#34d186;--accent-dim:#1f7a4d;--track:#212b26;--ride:#e2b13c;
+  }
+  :root:not([data-theme="dark"]){
+    @media (prefers-color-scheme: light){
+      --bg:#f6f8f6;--panel:#ffffff;--ink:#14201a;--muted:#5c6b62;--line:#e2e8e4;
+      --accent:#159d63;--accent-dim:#a9e3c6;--track:#eef2ef;--ride:#c58a12;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f8f6;--panel:#ffffff;--ink:#14201a;--muted:#5c6b62;--line:#e2e8e4;
+    --accent:#159d63;--accent-dim:#a9e3c6;--track:#eef2ef;--ride:#c58a12;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.4}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 20px 40px}
+  header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;margin-bottom:4px}
+  h1{font-size:1.32rem;font-weight:650;letter-spacing:-0.01em;margin:0}
+  .sub{color:var(--muted);font-size:.86rem}
+  .grain{color:var(--muted);font-size:.8rem;margin:6px 0 22px;border-left:2px solid var(--line);padding-left:10px}
+
+  .seg{display:inline-flex;background:var(--track);border:1px solid var(--line);
+    border-radius:10px;padding:3px;gap:2px;margin-bottom:22px}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--muted);
+    font:inherit;font-size:.9rem;font-weight:550;padding:8px 16px;border-radius:8px;
+    cursor:pointer;transition:color .15s;min-height:38px}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed="true"]{background:var(--panel);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .legend{display:flex;gap:18px;margin-bottom:16px;font-size:.8rem;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .swatch.bar{background:var(--accent)}
+  .swatch.ln{width:18px;height:0;border-top:2.5px solid var(--ride)}
+
+  .stats{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:18px}
+  .stat .n{font-size:1.4rem;font-weight:680;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+  .stat .l{font-size:.76rem;color:var(--muted)}
+  .stat .n.pk{color:var(--accent)}
+  .stat .n.rd{color:var(--ride)}
+
+  .chartbox{width:100%}
+  svg{width:100%;height:auto;display:block;overflow:visible}
+  .barrect{fill:var(--accent-dim);transition:height .45s cubic-bezier(.22,1,.36,1),y .45s cubic-bezier(.22,1,.36,1),fill .2s}
+  .barrect.peak{fill:var(--accent)}
+  .vlab{fill:var(--ink);font-size:12px;font-weight:600;text-anchor:middle;font-variant-numeric:tabular-nums}
+  .vlab.peak{fill:var(--accent)}
+  .rlab{fill:var(--ride);font-size:11px;font-weight:600;text-anchor:middle;font-variant-numeric:tabular-nums}
+  .day{fill:var(--muted);font-size:13px;text-anchor:middle;font-weight:550}
+  .rline{fill:none;stroke:var(--ride);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+  .rdot{fill:var(--ride)}
+
+  footer{margin-top:22px;color:var(--muted);font-size:.76rem;border-top:1px solid var(--line);padding-top:12px}
+  @media (prefers-reduced-motion:reduce){.barrect{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vaidlused nädalapäevade järgi</h1>
+    <span class="sub" id="sub"></span>
+  </header>
+  <p class="grain">Tulbad = tugipiletid (1 rida = 1 pilet) · joon = sõidud (unikaalne <code>order_id</code>) · kuupäev <code>calc_created</code></p>
+
+  <div class="seg" role="group" aria-label="Turufilter">
+    <button data-k="ALL" aria-pressed="true">KÕIK</button>
+    <button data-k="EU" aria-pressed="false">EU</button>
+    <button data-k="AFRICA" aria-pressed="false">Africa</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch bar"></i>Piletid</span>
+    <span><i class="swatch ln"></i>Sõidud</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="tot"></div><div class="l">piletit</div></div>
+    <div class="stat"><div class="n rd" id="rot"></div><div class="l">sõitu</div></div>
+    <div class="stat"><div class="n pk" id="pk"></div><div class="l" id="pkl">tipp</div></div>
+  </div>
+
+  <div class="chartbox">
+    <svg id="svg" viewBox="0 0 700 320" preserveAspectRatio="xMidYMid meet" aria-label="Diagramm"></svg>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const DAYS=["E","T","K","N","R","L","P"];
+const FULL=["Esmaspäev","Teisipäev","Kolmapäev","Neljapäev","Reede","Laupäev","Pühapäev"];
+const TICKETS={ALL:[631,578,606,667,926,781,754],EU:[290,326,350,377,571,484,372],AFRICA:[341,252,256,290,355,297,382]};
+const RIDES  ={ALL:[531,497,528,564,778,655,613],EU:[263,292,328,346,502,419,334],AFRICA:[268,205,200,218,276,236,279]};
+const LABEL={ALL:"kõik turud",EU:"eu_indicator = 1 (EUR)",AFRICA:"eu_indicator = 0 (non-EUR)"};
+
+const NS="http://www.w3.org/2000/svg";
+const W=700,H=320,PADT=26,PADB=30,PADX=8;
+const plotH=H-PADT-PADB,plotW=W-PADX*2,step=plotW/7;
+const svg=document.getElementById("svg");
+let cur="ALL";
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+
+function render(k){
+  const tk=TICKETS[k],rd=RIDES[k];
+  const max=Math.max(...tk);            // tickets >= rides -> shared y-scale
+  const tot=tk.reduce((a,b)=>a+b,0),rtot=rd.reduce((a,b)=>a+b,0);
+  const peak=tk.indexOf(max);
+  const y=v=>PADT+plotH*(1-v/max), cx=i=>PADX+step*i+step/2;
+
+  document.getElementById("sub").textContent=LABEL[k];
+  document.getElementById("tot").textContent=tot.toLocaleString("et-EE");
+  document.getElementById("rot").textContent=rtot.toLocaleString("et-EE");
+  document.getElementById("pk").textContent=tk[peak].toLocaleString("et-EE");
+  document.getElementById("pkl").textContent="tipp — "+FULL[peak];
+  const wknd=tk[4]+tk[5]+tk[6];
+  document.getElementById("foot").textContent=
+    `Sõidujoon jälgib sama mustrit; tulba ja joone vahe = korduspiletid ühe sõidu kohta. `+
+    `Nädalavahetus (R–P): ${wknd.toLocaleString("et-EE")} piletit = ${Math.round(wknd/tot*100)}% mahust.`;
+
+  svg.innerHTML="";
+  const bw=Math.min(step*0.5,54);
+  tk.forEach((n,i)=>{
+    const h=Math.max(plotH*n/max,2),yy=PADT+plotH-h;
+    const rect=el("rect",{class:"barrect"+(i===peak?" peak":""),x:cx(i)-bw/2,width:bw,rx:6,y:PADT+plotH,height:0});
+    svg.appendChild(rect);
+    requestAnimationFrame(()=>{rect.setAttribute("y",yy);rect.setAttribute("height",h);});
+    const vl=el("text",{class:"vlab"+(i===peak?" peak":""),x:cx(i),y:yy-6});vl.textContent=n;svg.appendChild(vl);
+    const dl=el("text",{class:"day",x:cx(i),y:H-8});dl.textContent=DAYS[i];svg.appendChild(dl);
+  });
+  svg.appendChild(el("polyline",{class:"rline",points:rd.map((n,i)=>cx(i)+","+y(n)).join(" ")}));
+  rd.forEach((n,i)=>{
+    svg.appendChild(el("circle",{class:"rdot",cx:cx(i),cy:y(n),r:3.5}));
+    const rl=el("text",{class:"rlab",x:cx(i),y:y(n)+16});rl.textContent=n;svg.appendChild(rl);
+  });
+}
+document.querySelectorAll(".seg button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    if(b.dataset.k===cur)return;
+    cur=b.dataset.k;
+    document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));
+    render(cur);
+  });
+});
+render("ALL");
+</script>
+</body>
+</html>
