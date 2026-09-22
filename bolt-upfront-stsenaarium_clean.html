@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bolt · Upfront-leke — aastane stsenaarium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EBEDF1; --card:#FFFFFF; --ink:#141821; --muted:#79818E; --line:#EAEDF1;
+  --now:#98A2B3; --fix:#12A472; --fixfill:#12A47222; --accent:#12A472;
+  --shadow:0 1px 2px rgba(20,24,33,.05),0 16px 44px rgba(20,24,33,.10);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0C0E13; --card:#161A21; --ink:#E9ECF2; --muted:#7E8794; --line:#232936;
+  --now:#7E8794; --fix:#2CC38C; --fixfill:#2CC38C26; --accent:#2CC38C;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 16px 44px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;padding:calc(26px + env(safe-area-inset-top)) 18px calc(26px + env(safe-area-inset-bottom))}
+.mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.card{background:var(--card);border-radius:22px;box-shadow:var(--shadow);max-width:820px;margin:0 auto;padding:24px 26px 20px}
+h1{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0 0 3px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 18px;max-width:64ch}
+.ctrls{display:flex;flex-wrap:wrap;gap:20px 28px;align-items:flex-end;margin-bottom:20px}
+.ctl{display:flex;flex-direction:column;gap:7px}
+.ctl label{font-size:11.5px;color:var(--muted);font-weight:600}
+.ctl input[type=number]{font:inherit;font-size:15px;font-family:"IBM Plex Mono";padding:8px 11px;width:150px;
+  border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink)}
+.ctl .rangewrap{display:flex;align-items:center;gap:10px}
+.ctl input[type=range]{width:180px;accent-color:var(--accent)}
+.ctl .rv{font-family:"IBM Plex Mono";font-size:14px;font-weight:600;min-width:38px}
+.stats{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px}
+.stat{border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:140px}
+.stat .n{font-size:22px;font-weight:700;font-family:"IBM Plex Mono"}
+.stat .l{font-size:12px;color:var(--muted);margin-top:3px}
+.stat.fix .n{color:var(--fix)}
+svg.chart{width:100%;display:block}
+.axt{fill:var(--muted);font-size:11px;font-family:"IBM Plex Sans"}
+.leg{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:6px}
+.leg i{display:inline-block;width:13px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px}
+footer{color:var(--muted);font-size:11px;margin-top:16px;line-height:1.55;border-top:1px solid var(--line);padding-top:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Upfront-leke: aastane stsenaarium</h1>
+  <p class="sub">Iga sõit, mis tuleb kallimaks kui upfront-hind, jätab käibe lauale. Puhastatud näidisandmetest mõõdetud leke on <b>15% upfront-käibest</b>. See on <b>stsenaarium, mitte prognoos</b> — sisesta oma tegelik aastane käive ja eeldus, kui suure osa lekkest reaalselt kinni paned.</p>
+
+  <div class="ctrls">
+    <div class="ctl">
+      <label>Aastane upfront-käive (baas, €)</label>
+      <input type="number" id="base" value="134313" min="0" step="1000">
+    </div>
+    <div class="ctl">
+      <label>Lekkest kinni pandud</label>
+      <div class="rangewrap">
+        <input type="range" id="rr" min="0" max="100" step="5" value="70">
+        <span class="rv mono" id="rrv">70%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <svg class="chart" id="chart" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Aastane käibe stsenaarium"></svg>
+  <div class="leg">
+    <span><i style="background:var(--now)"></i>Praegune suund (leke sees)</span>
+    <span><i style="background:var(--fix)"></i>Upfront lahendatud</span>
+    <span><i style="background:var(--fixfill);width:13px;height:11px;border-radius:2px"></i>Taastatud käive</span>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+"use strict";
+const LEAK=0.1529;                    // mõõdetud puhastatud andmetest (EUR, sõidutasand, €2251 / €14719, 40 päeva)
+const MONTHS=['Jaan','Veebr','Märts','Apr','Mai','Juuni','Juuli','Aug','Sept','Okt','Nov','Dets'];
+const fmt=n=>Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+const eur=n=>'€'+fmt(n);
+
+function vals(){
+  const base=Math.max(0,+document.getElementById('base').value||0);
+  const rr=(+document.getElementById('rr').value||0)/100;
+  return {base,rr, recovered:base*LEAK*rr, solved:base*(1+LEAK*rr)};
+}
+function renderStats(v){
+  document.getElementById('stats').innerHTML=
+    '<div class="stat"><div class="n">'+eur(v.base)+'</div><div class="l">praegune aastakäive</div></div>'+
+    '<div class="stat fix"><div class="n">'+eur(v.solved)+'</div><div class="l">lahendatud aastakäive</div></div>'+
+    '<div class="stat fix"><div class="n">+'+eur(v.recovered)+'</div><div class="l">taastatud käive / aasta ('+Math.round(LEAK*v.rr*100)+'%)</div></div>';
+}
+function renderChart(v){
+  const W=760,H=300,PL=64,PR=16,PT=16,PB=34;
+  const X=m=>PL+(W-PL-PR)*(m/12);
+  const ymax=Math.max(v.solved,v.base)*1.08||1;
+  const Y=val=>PT+(H-PT-PB)*(1-val/ymax);
+  const cs=getComputedStyle(document.documentElement);
+  const cNow=cs.getPropertyValue('--now').trim(),cFix=cs.getPropertyValue('--fix').trim(),
+        cFill=cs.getPropertyValue('--fixfill').trim(),cGrid=cs.getPropertyValue('--line').trim();
+  let g='';
+  // y grid + labels
+  for(let t=0;t<=4;t++){const val=ymax*t/4,y=Y(val);
+    g+='<line x1="'+PL+'" y1="'+y.toFixed(1)+'" x2="'+(W-PR)+'" y2="'+y.toFixed(1)+'" stroke="'+cGrid+'"/>';
+    g+='<text class="axt" x="'+(PL-8)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end">'+eur(val)+'</text>';}
+  // x labels (every 2nd month + Dets)
+  MONTHS.forEach((mn,i)=>{ if(i%2===0||i===11)
+    g+='<text class="axt" x="'+X(i+1).toFixed(1)+'" y="'+(H-12)+'" text-anchor="middle">'+mn+'</text>'; });
+  // cumulative points 0..12
+  const now=[],fix=[];
+  for(let m=0;m<=12;m++){ now.push([X(m),Y(v.base*m/12)]); fix.push([X(m),Y(v.solved*m/12)]); }
+  // shaded gap (between now and fix)
+  let area='M'+fix.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L');
+  area+=' L'+[...now].reverse().map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L')+'Z';
+  g+='<path d="'+area+'" fill="'+cFill+'"/>';
+  // lines
+  const line=(pts,c,w,dash)=>'<polyline points="'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'" fill="none" stroke="'+c+'" stroke-width="'+w+'"'+(dash?' stroke-dasharray="'+dash+'"':'')+' stroke-linejoin="round"/>';
+  g+=line(now,cNow,2.5);
+  g+=line(fix,cFix,2.5);
+  // end gap annotation
+  const ex=X(12), ey0=Y(v.base),ey1=Y(v.solved);
+  g+='<line x1="'+(ex-2)+'" y1="'+ey0.toFixed(1)+'" x2="'+(ex-2)+'" y2="'+ey1.toFixed(1)+'" stroke="'+cFix+'" stroke-width="1.5"/>';
+  g+='<circle cx="'+ex.toFixed(1)+'" cy="'+ey1.toFixed(1)+'" r="3.5" fill="'+cFix+'"/>';
+  g+='<circle cx="'+ex.toFixed(1)+'" cy="'+ey0.toFixed(1)+'" r="3.5" fill="'+cNow+'"/>';
+  if(v.recovered>0){
+    g+='<text x="'+(ex-8)+'" y="'+((ey0+ey1)/2+4).toFixed(1)+'" text-anchor="end" style="fill:'+cFix+';font-weight:700;font-size:12px;font-family:IBM Plex Mono">+'+eur(v.recovered)+'</text>';
+  }
+  const svg=document.getElementById('chart');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.innerHTML=g;
+}
+function renderFoot(v){
+  document.getElementById('foot').innerHTML=
+    '<b>Stsenaarium, mitte prognoos.</b> 15% leke on mõõdetud puhastatud andmetest — sõidutasand (unikaalne order_id), EUR-turg, kehtivad sõidud upfront-hinnaga: leke €2 251 / upfront-käive €14 719, n=2 263 sõitu (40 päeva). '+
+    'Baas ja taastamismäär on <b>sinu eeldused</b> — absoluutne € sõltub sinu sisestatud käibest, mitte näidisandmete mahust. '+
+    'Aastabaas €134 313 = 40 päeva upfront-käive annualiseeritud (×365/40). '+
+    'Mudel eeldab ühtlast jooksmäära (ei arvesta hooajalisust ega kasvu). 100% taastamine on ideaal — reaalne on osaline. '+
+    'Allikas: 2026_Bolt_data, puhastatud (bolt_clean).';
+}
+function render(){
+  document.getElementById('rrv').textContent=document.getElementById('rr').value+'%';
+  const v=vals(); renderStats(v); renderChart(v); renderFoot(v);
+}
+document.getElementById('base').addEventListener('input',render);
+document.getElementById('rr').addEventListener('input',render);
+render();
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',render);
+</script>
+</body>
+</html>
